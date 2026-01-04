@@ -1,0 +1,892 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>色合わせゲーム（5問/10秒/記録）</title>
+  <style>
+    :root{
+      --bg:#0b0c10;
+      --card:#12141a;
+      --border:#1f2430;
+      --text:#e6e6e6;
+      --muted:#9aa3ad;
+      --btn:#161a22;
+      --btnHover:#1b2130;
+      --good:#4ade80;
+      --mid:#fbbf24;
+      --bad:#fb7185;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+      margin:0; padding:24px;
+      background:var(--bg); color:var(--text);
+    }
+    .wrap{ max-width: 1000px; margin:0 auto; }
+    h1{ font-size:18px; margin:0 0 8px; }
+    .sub{ color:var(--muted); font-size:12px; margin-bottom:14px; line-height:1.6; }
+
+    .topbar{
+      display:flex; gap:10px; flex-wrap:wrap;
+      align-items:center; justify-content:space-between;
+      margin-bottom:14px;
+    }
+    .statline{
+      display:flex; gap:10px; flex-wrap:wrap;
+      color:var(--muted); font-size:12px;
+      align-items:center;
+    }
+    .pill{
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.04);
+      padding:6px 10px; border-radius:999px;
+      display:flex; gap:8px; align-items:baseline;
+    }
+    .pill b{ color:var(--text); }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:16px;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px;
+    }
+    .label{ font-size:12px; color:var(--muted); margin-bottom:8px; }
+    .swatch{
+      height: 220px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.08);
+      background:#000;
+      position:relative;
+      overflow:hidden;
+    }
+    .hintRing{
+      position:absolute; inset:10px;
+      border-radius:10px;
+      border:1px dashed rgba(255,255,255,.16);
+      pointer-events:none;
+    }
+    .row{
+      display:flex; align-items:center; gap:8px;
+      margin-top:10px; flex-wrap:wrap;
+    }
+    code{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: rgba(255,255,255,.08);
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    .controls{ margin-top: 14px; display:grid; gap:10px; }
+    .control{
+      display:grid;
+      grid-template-columns: 20px 1fr 56px;
+      gap:10px; align-items:center;
+    }
+    input[type="range"]{ width:100%; }
+    .btns{ display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+    button{
+      border:1px solid #2a3140;
+      background:var(--btn);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+    }
+    button:hover{ background:var(--btnHover); }
+    button:disabled{
+      opacity:.45; cursor:not-allowed;
+    }
+
+    .result{
+      margin-top:12px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      padding:12px;
+      background: rgba(255,255,255,.03);
+      display:grid; gap:8px;
+    }
+    .resultTop{
+      display:flex; gap:10px; flex-wrap:wrap;
+      align-items:baseline; justify-content:space-between;
+    }
+    .bigScore{
+      font-size:28px; font-weight:700; letter-spacing:.2px;
+    }
+    .judge{
+      font-size:13px; color:var(--muted);
+    }
+    .bar{
+      height:10px; border-radius:999px;
+      background: rgba(255,255,255,.08);
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.10);
+    }
+    .bar > div{
+      height:100%;
+      width:0%;
+      background: var(--bad);
+      transition: width .12s ease;
+    }
+    .mini{
+      display:flex; gap:10px; flex-wrap:wrap;
+      color:var(--muted); font-size:12px;
+    }
+
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:11px;
+      border:1px solid rgba(255,255,255,.16);
+      padding:2px 6px; border-radius:8px;
+      background: rgba(255,255,255,.06);
+      color:var(--text);
+    }
+
+    details{
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 12px;
+      background: rgba(255,255,255,.02);
+    }
+    summary{
+      cursor:pointer;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .history{
+      margin-top:8px;
+      font-size:12px;
+      color:var(--muted);
+      display:grid;
+      gap:6px;
+    }
+    .historyItem{
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:10px;
+      padding:8px 10px;
+      background: rgba(255,255,255,.02);
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:baseline;
+      justify-content:space-between;
+    }
+
+    @media (max-width: 860px){
+      .grid{ grid-template-columns:1fr; }
+      .swatch{ height:190px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>色合わせゲーム（5問 / 10秒 / 記録）</h1>
+        <div class="sub">
+          ターゲット色に近づけて <span class="kbd">Enter</span> で判定。<span class="kbd">N</span> で次の問題。<br/>
+          微調整：<span class="kbd">←/→</span>でR、<span class="kbd">↑/↓</span>でG、<span class="kbd">Alt+←/→</span>でB（<span class="kbd">Shift</span>で±5）。
+        </div>
+      </div>
+      <div class="statline">
+        <div class="pill">Set: <b id="setText">1</b></div>
+        <div class="pill">Round: <b id="roundText">1</b> / <span id="roundMaxText">5</span></div>
+        <div class="pill">Time: <b id="timeText">10.0</b>s</div>
+        <div class="pill">Best: <b id="bestText">0</b></div>
+        <div class="pill">Avg: <b id="avgText">0</b></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- ターゲット -->
+      <section class="card">
+        <div class="label">ターゲット（ランダム）</div>
+        <div id="targetSwatch" class="swatch"><div class="hintRing"></div></div>
+        <div class="row">
+          <span class="label">RGB</span>
+          <code id="targetText">rgb(?, ?, ?)</code>
+        </div>
+        <div class="btns">
+          <button id="btnNewTarget" type="button">ターゲット更新（練習）</button>
+          <button id="btnReveal" type="button">答えを見る（学習用）</button>
+        </div>
+      </section>
+
+      <!-- 自分 -->
+      <section class="card">
+        <div class="label">自分の色（スライダー / キー微調整）</div>
+        <div id="userSwatch" class="swatch"><div class="hintRing"></div></div>
+        <div class="row">
+          <span class="label">RGB</span>
+          <code id="userText">rgb(128, 128, 128)</code>
+        </div>
+
+        <div class="controls">
+          <div class="control">
+            <span class="label">R</span>
+            <input id="r" type="range" min="0" max="255" value="128" />
+            <code id="rVal">128</code>
+          </div>
+          <div class="control">
+            <span class="label">G</span>
+            <input id="g" type="range" min="0" max="255" value="128" />
+            <code id="gVal">128</code>
+          </div>
+          <div class="control">
+            <span class="label">B</span>
+            <input id="b" type="range" min="0" max="255" value="128" />
+            <code id="bVal">128</code>
+          </div>
+        </div>
+
+        <div class="btns">
+          <button id="btnJudge" type="button">判定（Enter）</button>
+          <button id="btnNext" type="button" disabled>次の問題（N）</button>
+          <button id="btnReset" type="button">128に戻す</button>
+          <button id="btnRestart" type="button">最初から（Set1）</button>
+          <button id="btnClearHistory" type="button">記録を消す</button>
+        </div>
+
+        <div class="result" aria-live="polite">
+          <div class="resultTop">
+            <div class="bigScore"><span id="scoreText">0</span><span style="font-size:14px; font-weight:600; color:var(--muted);"> / 100</span></div>
+            <div class="judge" id="judgeText">調整中（Enterで判定）</div>
+          </div>
+          <div class="bar" title="スコア">
+            <div id="scoreBar"></div>
+          </div>
+          <div class="mini">
+            <div>誤差: <b id="diffText">0</b></div>
+            <div>合格ライン: <b id="passLineText">96</b></div>
+            <div>状態: <b id="phaseText">調整中</b></div>
+          </div>
+        </div>
+
+        <details style="margin-top:12px;">
+          <summary>セット成績の履歴（localStorage）</summary>
+          <div class="history" id="historyBox"></div>
+        </details>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    /*****************************************************************
+     * 1) 状態（ゲームの中身）
+     *****************************************************************/
+    const STORAGE_KEY = "color_match_set_history_v1";
+
+    const state = {
+      // 色
+      target: { r: 0, g: 0, b: 0 },
+      user:   { r: 128, g: 128, b: 128 },
+
+      // 進行
+      setIndex: 1,          // 何セット目か（5問で1セット）
+      round: 1,
+      roundMax: 5,          // ★要望③：5問単位
+      phase: "tuning",      // "tuning" | "judged" | "set_finished"
+      scores: [],           // 各ラウンドのスコア（0-100）
+      passLine: 96,         // ★要望①：合格ライン（96以上）
+
+      // タイマー
+      timeLimitMs: 10_000,  // ★要望②：10秒
+      timeLeftMs: 10_000,
+      timerId: null,
+      timerRunning: false,
+      inputLocked: false, // ★バグ 判定後/時間切れ後は true
+
+      // 表示用
+      last: {
+        diff: 0,
+        score: 0,
+        message: "調整中（Enterで判定）",
+        auto: false,
+      },
+
+      // 学習用
+      reveal: false,
+
+      // セット履歴
+      setHistory: [],
+      lastSetSummary: null,
+    };
+
+    /*****************************************************************
+     * 2) DOM参照
+     *****************************************************************/
+    const dom = {
+      // swatch
+      targetSwatch: document.getElementById("targetSwatch"),
+      userSwatch: document.getElementById("userSwatch"),
+
+      // 表示
+      targetText: document.getElementById("targetText"),
+      userText: document.getElementById("userText"),
+
+      // slider
+      r: document.getElementById("r"),
+      g: document.getElementById("g"),
+      b: document.getElementById("b"),
+      rVal: document.getElementById("rVal"),
+      gVal: document.getElementById("gVal"),
+      bVal: document.getElementById("bVal"),
+
+      // buttons
+      btnNewTarget: document.getElementById("btnNewTarget"),
+      btnReveal: document.getElementById("btnReveal"),
+      btnReset: document.getElementById("btnReset"),
+      btnJudge: document.getElementById("btnJudge"),
+      btnNext: document.getElementById("btnNext"),
+      btnRestart: document.getElementById("btnRestart"),
+      btnClearHistory: document.getElementById("btnClearHistory"),
+
+      // result
+      diffText: document.getElementById("diffText"),
+      scoreText: document.getElementById("scoreText"),
+      judgeText: document.getElementById("judgeText"),
+      scoreBar: document.getElementById("scoreBar"),
+      phaseText: document.getElementById("phaseText"),
+      passLineText: document.getElementById("passLineText"),
+
+      // top stats
+      setText: document.getElementById("setText"),
+      roundText: document.getElementById("roundText"),
+      roundMaxText: document.getElementById("roundMaxText"),
+      timeText: document.getElementById("timeText"),
+      bestText: document.getElementById("bestText"),
+      avgText: document.getElementById("avgText"),
+
+      // history
+      historyBox: document.getElementById("historyBox"),
+    };
+
+    /*****************************************************************
+     * 3) utilities
+     *****************************************************************/
+    function clamp(n, min, max) {
+      return Math.min(max, Math.max(min, n));
+    }
+    function random255() {
+      return Math.floor(Math.random() * 256);
+    }
+    function toRgbString(c) {
+      return `rgb(${c.r}, ${c.g}, ${c.b})`;
+    }
+    function computeDiff(a, b) {
+      return Math.abs(a.r - b.r) + Math.abs(a.g - b.g) + Math.abs(a.b - b.b); // 0..765
+    }
+    function computeScore(diff) {
+      const raw = 100 - (diff / 765) * 100;
+      return Math.floor(clamp(raw, 0, 100));
+    }
+    function scoreColor(score) {
+      if (score >= 85) return "var(--good)";
+      if (score >= 55) return "var(--mid)";
+      return "var(--bad)";
+    }
+    function avgScore(scores) {
+      if (!scores.length) return 0;
+      const sum = scores.reduce((a,b)=>a+b,0);
+      return Math.floor(sum / scores.length);
+    }
+    function bestScore(scores) {
+      return scores.length ? Math.max(...scores) : 0;
+    }
+    function judgeMessage(score, isAuto) {
+      const suffix = isAuto ? "（時間切れ判定）" : "";
+      if (score === 100) return `🧠 完全一致。優勝。${suffix}`;
+      if (score >= 96)  return `✅ 合格！いいね。${suffix}`;
+      if (score >= 85)  return `✨ かなり近い！あと一息。${suffix}`;
+      if (score >= 70)  return `👍 惜しい。調整で伸びる。${suffix}`;
+      if (score >= 50)  return `🙂 まだいける。方向は合ってる。${suffix}`;
+      if (score >= 30)  return `😇 迷子。いったん落ち着こ。${suffix}`;
+      return `🫠 逆に才能。ここからが面白い。${suffix}`;
+    }
+    function formatSec(ms) {
+      return (ms / 1000).toFixed(1);
+    }
+    function nowIso() {
+      const d = new Date();
+      // ざっくり表示用（ローカル）
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,"0");
+      const da = String(d.getDate()).padStart(2,"0");
+      const hh = String(d.getHours()).padStart(2,"0");
+      const mm = String(d.getMinutes()).padStart(2,"0");
+      return `${y}-${m}-${da} ${hh}:${mm}`;
+    }
+
+    /*****************************************************************
+     * 4) storage
+     *****************************************************************/
+    function loadHistory() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed;
+      } catch {
+        return [];
+      }
+    }
+    function saveHistory(history) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+      } catch {
+        // 容量等で失敗してもゲーム自体は動かす
+      }
+    }
+    function clearHistory() {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {}
+      state.setHistory = [];
+    }
+
+    /*****************************************************************
+     * 5) timer control
+     *****************************************************************/
+    function stopTimer() {
+      if (state.timerId) {
+        clearInterval(state.timerId);
+        state.timerId = null;
+      }
+      state.timerRunning = false;
+    }
+
+    function startTimer() {
+      stopTimer();
+      state.timeLeftMs = state.timeLimitMs;
+      state.timerRunning = true;
+
+      const startedAt = Date.now();
+      state.timerId = setInterval(() => {
+        const elapsed = Date.now() - startedAt;
+        const left = state.timeLimitMs - elapsed;
+        state.timeLeftMs = Math.max(0, left);
+
+        // time up -> auto judge
+        if (state.timeLeftMs <= 0) {
+          stopTimer();
+          // まだ判定してないなら自動判定
+          if (state.phase === "tuning") {
+            doJudge(true);
+          }
+        }
+        render();
+      }, 50);
+    }
+
+    /*****************************************************************
+     * 6) state mutators
+     *****************************************************************/
+    function setNewTargetPractice() {
+      // 練習ボタン：ラウンド進行は変えず、ターゲットだけ変更（時間もリセット）
+      state.target = { r: random255(), g: random255(), b: random255() };
+      state.reveal = false;
+      state.phase = "tuning";
+      state.last = { diff: 0, score: 0, message: "調整中（Enterで判定）", auto: false };
+      dom.btnNext.disabled = true;
+      startTimer();
+    }
+
+    function setNewRoundTarget() {
+      state.target = { r: random255(), g: random255(), b: random255() };
+      state.reveal = false;
+    }
+
+    function setUserFromSliders() {
+      if (state.inputLocked) return; //★バグ修正：判定後は入力無効
+
+      state.user = {
+        r: Number(dom.r.value),
+        g: Number(dom.g.value),
+        b: Number(dom.b.value),
+      };
+      // 判定後に動かしたら、次へは一旦ロックして判定し直し
+      if (state.phase === "judged") {
+        state.phase = "tuning";
+        state.last.message = "調整中（判定し直してね）";
+        dom.btnNext.disabled = true;
+        startTimer();
+      }
+    }
+
+    function resetUserTo128() {
+      dom.r.value = 128;
+      dom.g.value = 128;
+      dom.b.value = 128;
+      setUserFromSliders();
+    }
+
+    function restartSet(setIndex = 1) {
+      state.setIndex = setIndex;
+      state.round = 1;
+      state.scores = [];
+      state.phase = "tuning";
+      state.last = { diff: 0, score: 0, message: "調整中（Enterで判定）", auto: false };
+      state.inputLocked = false; //★バグ修正
+      setNewRoundTarget();
+      resetUserTo128();
+      dom.btnNext.disabled = true;
+      startTimer();
+    }
+
+    function doJudge(isAuto = false) {
+      if (state.phase === "set_finished") return;
+
+      const diff = computeDiff(state.target, state.user);
+      const score = computeScore(diff);
+      const msg = judgeMessage(score, isAuto);
+
+      state.last = { diff, score, message: msg, auto: isAuto };
+      state.phase = "judged";
+      state.inputLocked = true;  //★バグ修正
+
+
+      // 記録（同ラウンドは上書き）
+      if (state.scores.length === state.round - 1) {
+        state.scores.push(score);
+      } else {
+        state.scores[state.round - 1] = score;
+      }
+
+      stopTimer();
+      dom.btnNext.disabled = false;
+
+      // セット終了判定
+      if (state.round >= state.roundMax) {
+        finishSet();
+      }
+    }
+
+    function finishSet() {
+      // 5問の成績を集計して表示＋保存
+      const best = bestScore(state.scores);
+      const avg = avgScore(state.scores);
+      const passed = state.scores.filter(s => s >= state.passLine).length;
+
+      const summary = {
+        at: nowIso(),
+        setIndex: state.setIndex,
+        roundMax: state.roundMax,
+        passLine: state.passLine,
+        best,
+        avg,
+        passed,
+        scores: [...state.scores],
+      };
+
+      state.lastSetSummary = summary;
+      state.phase = "set_finished";
+
+      // ★要望⑤：5問ごとの成績を記録（localStorage）
+      state.setHistory.unshift(summary);
+      saveHistory(state.setHistory);
+
+      // 次ボタンは「次のセット」になる
+      dom.btnNext.disabled = false;
+    }
+
+    function nextAction() {
+      if (state.phase === "set_finished") {
+        // 次のセットへ
+        restartSet(state.setIndex + 1);
+        return;
+      }
+
+      // まだセット中（judged で next を押した）
+      if (state.round >= state.roundMax) {
+        // ここに来るのはほぼないが保険
+        finishSet();
+        return;
+      }
+
+      state.round += 1;
+      state.inputLocked = false;  //★バグ修正
+      state.phase = "tuning";
+      state.last = { diff: 0, score: 0, message: "調整中（Enterで判定）", auto: false };
+      dom.btnNext.disabled = true;
+
+      setNewRoundTarget();
+      resetUserTo128();
+      startTimer();
+    }
+
+    function toggleReveal() {
+      state.reveal = !state.reveal;
+    }
+
+    /*****************************************************************
+     * 7) keyboard micro adjust
+     *   ←/→ : R
+     *   ↑/↓ : G
+     *   Alt + ←/→ : B
+     *   Shift : step 5 (default step 1)
+     *****************************************************************/
+    function nudgeChannel(channel, delta) {
+      if (state.inputLocked) return; // ★バグ修正：判定後は入力無効
+
+      const next = clamp(state.user[channel] + delta, 0, 255);
+      state.user[channel] = next;
+
+      // スライダーにも反映
+      if (channel === "r") dom.r.value = next;
+      if (channel === "g") dom.g.value = next;
+      if (channel === "b") dom.b.value = next;
+
+      // 判定後にいじったらやり直し
+      if (state.phase === "judged") {
+        state.phase = "tuning";
+        state.last.message = "調整中（判定し直してね）";
+        dom.btnNext.disabled = true;
+        startTimer();
+      }
+
+      render();
+    }
+
+    /*****************************************************************
+     * 8) render
+     *****************************************************************/
+    function renderHistory() {
+      const box = dom.historyBox;
+      box.innerHTML = "";
+
+      if (!state.setHistory.length) {
+        const p = document.createElement("div");
+        p.textContent = "まだ記録なし（5問終わると保存される）";
+        box.appendChild(p);
+        return;
+      }
+
+      // 最新5件だけ見せる（多すぎると邪魔）
+      const items = state.setHistory.slice(0, 5);
+      for (const h of items) {
+        const row = document.createElement("div");
+        row.className = "historyItem";
+        row.innerHTML = `
+          <div>
+            <b>Set ${h.setIndex}</b> <span style="color:var(--muted);">(${h.at})</span><br/>
+            <span>Avg <b>${h.avg}</b> / Best <b>${h.best}</b> / Pass <b>${h.passed}</b>/${h.roundMax}</span>
+          </div>
+          <div style="text-align:right;">
+            <span style="color:var(--muted);">scores:</span> <code>${h.scores.join(", ")}</code>
+          </div>
+        `;
+        box.appendChild(row);
+      }
+
+      if (state.setHistory.length > 5) {
+        const more = document.createElement("div");
+        more.textContent = `ほか ${state.setHistory.length - 5} 件（localStorageに保存済み）`;
+        box.appendChild(more);
+      }
+    }
+
+    function render() {
+      // swatch
+      const targetRgb = toRgbString(state.target);
+      dom.targetSwatch.style.background = targetRgb;
+
+      dom.targetText.textContent = state.reveal ? targetRgb : "rgb(?, ?, ?)";
+      const userRgb = toRgbString(state.user);
+      dom.userSwatch.style.background = userRgb;
+      dom.userText.textContent = userRgb;
+
+      // slider numbers
+      dom.rVal.textContent = String(state.user.r);
+      dom.gVal.textContent = String(state.user.g);
+      dom.bVal.textContent = String(state.user.b);
+
+      // live calc
+      const liveDiff = computeDiff(state.target, state.user);
+      const liveScore = computeScore(liveDiff);
+
+      const shownDiff = (state.phase === "judged" || state.phase === "set_finished") ? state.last.diff : liveDiff;
+      const shownScore = (state.phase === "judged" || state.phase === "set_finished") ? state.last.score : liveScore;
+
+      dom.diffText.textContent = String(shownDiff);
+      dom.scoreText.textContent = String(shownScore);
+
+      // message
+      if (state.phase === "set_finished") {
+        const s = state.lastSetSummary;
+        dom.judgeText.textContent =
+          `🏁 Set ${s.setIndex} 終了！ Avg=${s.avg} / Best=${s.best} / Pass=${s.passed}/${s.roundMax}（次で次セット）`;
+      } else if (state.phase === "judged") {
+        dom.judgeText.textContent = state.last.message;
+      } else {
+        dom.judgeText.textContent = "調整中（Enterで判定）";
+      }
+
+      // bar
+      dom.scoreBar.style.width = `${shownScore}%`;
+      dom.scoreBar.style.background = scoreColor(shownScore);
+
+      // phase
+      dom.phaseText.textContent =
+        state.phase === "tuning" ? "調整中（10秒）" :
+        state.phase === "judged" ? "判定済み（次へOK）" :
+        "セット終了（記録済み）";
+
+      // pass line
+      dom.passLineText.textContent = String(state.passLine);
+
+      // top stats
+      dom.setText.textContent = String(state.setIndex);
+      dom.roundText.textContent = String(state.round);
+      dom.roundMaxText.textContent = String(state.roundMax);
+      dom.timeText.textContent = formatSec(state.timeLeftMs);
+
+      dom.bestText.textContent = String(bestScore(state.scores));
+      dom.avgText.textContent = String(avgScore(state.scores));
+
+      // render() でスライダーを disable
+      const lock = state.inputLocked || state.phase === "set_finished"; // ★バグ修正
+      dom.r.disabled = lock; // ★バグ修正
+      dom.g.disabled = lock; // ★バグ修正
+      dom.b.disabled = lock; // ★バグ修正
+
+      // buttons
+      dom.btnReveal.textContent = state.reveal ? "答えを隠す" : "答えを見る（学習用）";
+
+      dom.btnJudge.disabled = (state.phase === "set_finished");
+      dom.btnNext.textContent =
+        (state.phase === "set_finished") ? "次のセットへ（N）" : "次の問題（N）";
+
+      // Nextは判定後のみ押せる（ただしセット終了時は押せる）
+      if (state.phase === "tuning") dom.btnNext.disabled = true;
+
+      // history
+      renderHistory();
+    }
+
+    /*****************************************************************
+     * 9) events
+     *****************************************************************/
+    function bindEvents() {
+      // sliders
+      [dom.r, dom.g, dom.b].forEach((slider) => {
+        slider.addEventListener("input", () => {
+          setUserFromSliders();
+          render();
+        });
+      });
+
+      dom.btnNewTarget.addEventListener("click", () => {
+        setNewTargetPractice();
+        render();
+      });
+
+      dom.btnReveal.addEventListener("click", () => {
+        toggleReveal();
+        render();
+      });
+
+      dom.btnReset.addEventListener("click", () => {
+        resetUserTo128();
+        render();
+      });
+
+      dom.btnJudge.addEventListener("click", () => {
+        doJudge(false);
+        render();
+      });
+
+      dom.btnNext.addEventListener("click", () => {
+        nextAction();
+        render();
+      });
+
+      dom.btnRestart.addEventListener("click", () => {
+        restartSet(1);
+        render();
+      });
+
+      dom.btnClearHistory.addEventListener("click", () => {
+        clearHistory();
+        saveHistory(state.setHistory);
+        render();
+      });
+
+      // keyboard
+      window.addEventListener("keydown", (e) => {
+        // 判定
+        if (e.key === "Enter") {
+          e.preventDefault();
+          doJudge(false);
+          render();
+          return;
+        }
+
+        // 次
+        if (e.key === "n" || e.key === "N") {
+          e.preventDefault();
+          if (!dom.btnNext.disabled) {
+            nextAction();
+            render();
+          }
+          return;
+        }
+
+        // 微調整（方向キー）
+        const step = e.shiftKey ? 5 : 1;
+
+        // Alt+←/→ => B
+        if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+          e.preventDefault();
+          const delta = (e.key === "ArrowLeft") ? -step : step;
+          nudgeChannel("b", delta);
+          return;
+        }
+
+        // ←/→ => R
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+          e.preventDefault();
+          const delta = (e.key === "ArrowLeft") ? -step : step;
+          nudgeChannel("r", delta);
+          return;
+        }
+
+        // ↑/↓ => G
+        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          e.preventDefault();
+          const delta = (e.key === "ArrowDown") ? -step : step; // 下で減る、上で増える
+          nudgeChannel("g", delta);
+          return;
+        }
+
+        // 便利：Rで128に戻す（Ctrl/Metaは無視）
+        if ((e.key === "r" || e.key === "R") && !(e.ctrlKey || e.metaKey)) {
+          resetUserTo128();
+          render();
+          return;
+        }
+      });
+    }
+
+    /*****************************************************************
+     * 10) init
+     *****************************************************************/
+    function init() {
+      state.setHistory = loadHistory();
+      setNewRoundTarget();
+      resetUserTo128();
+      bindEvents();
+      startTimer();
+      render();
+    }
+
+    init();
+  </script>
+</body>
+</html>
